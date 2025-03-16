@@ -1,124 +1,99 @@
-// Fetch the list of available flood monitoring stations
-fetch("https://environment.data.gov.uk/flood-monitoring/id/stations")
-  .then(response => {
-    if (!response.ok) throw new Error("Network response was not OK");
-    return response.json();
-  })
-  .then(data => {
-    const stationSelect = document.getElementById("station-select");
+// Function to fetch data from the selected station
+async function fetchStationData(stationId) {
+    try {
+        // Get the current date and subtract 24 hours to get data from the last 24 hours
+        const dateFrom = new Date();
+        dateFrom.setHours(dateFrom.getHours() - 24);  // Subtract 24 hours
+        const apiUrl = `https://environment.data.gov.uk/flood-monitoring/id/stations/${stationId}/readings?dateFrom=${dateFrom.toISOString()}`;
+        
+        console.log("Fetching data from API:", apiUrl);  // Debugging the URL
 
-    if (!data.items || data.items.length === 0) {
-      stationSelect.innerHTML = '<option value="">No stations available</option>';
-      console.error("No stations found in API response.");
-      return;
-    }
-
-    stationSelect.innerHTML = '<option value="">Select a station</option>'; // Reset dropdown
-    data.items.forEach(station => {
-      let option = document.createElement("option");
-      option.value = station.stationReference;
-      option.textContent = station.label;
-      stationSelect.appendChild(option);
-    });
-
-    console.log("Stations loaded successfully.");
-  })
-  .catch(error => {
-    console.error("Error fetching stations:", error);
-    document.getElementById("station-select").innerHTML = '<option value="">Error loading stations</option>';
-  });
-
-// Event listener when user selects a station
-document.getElementById("station-select").addEventListener("change", function() {
-  const stationId = this.value;
-  if (!stationId) return;
-
-  const now = new Date();
-  const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000)); // 24 hours ago
-  const formattedYesterday = yesterday.toISOString(); // Convert to API-friendly format
-
-  fetch(`https://environment.data.gov.uk/flood-monitoring/id/stations/${stationId}/readings?dateFrom=${formattedYesterday}`)
-    .then(response => {
-      if (!response.ok) throw new Error("Network response was not OK");
-      return response.json();
-    })
-    .then(data => {
-      console.log("API Data:", data); // Debugging - check if data is coming in
-
-      let readings = data.items;
-
-      if (!readings || readings.length === 0) {
-          alert("No data found for this station in the last 24 hours.");
-          return;
-      }
-
-      // Sort readings by time (sometimes API returns unordered data)
-      readings.sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
-
-      const timestamps = readings.map(item => new Date(item.dateTime).toLocaleString());
-      const levels = readings.map(item => item.value);
-
-      updateChart(timestamps, levels);
-      updateTable(readings);
-    })
-    .catch(error => {
-      console.error("Error fetching station data:", error);
-      alert("There was an error fetching the data.");
-    });
-});
-
-// Function to update the chart
-function updateChart(timestamps, levels) {
-  const chartCanvas = document.getElementById("station-chart").getContext("2d");
-
-  if (window.myChart) {
-      window.myChart.destroy();
-  }
-
-  window.myChart = new Chart(chartCanvas, {
-    type: 'line',
-    data: {
-      labels: timestamps,
-      datasets: [{
-        label: 'Flood Level (m)',
-        data: levels,
-        fill: false,
-        borderColor: 'blue',
-        tension: 0.1
-      }]
-    },
-    options: {
-      scales: {
-        x: { 
-            title: { display: true, text: 'Time' },
-            type: 'time', // Auto-adjusts X-axis for time data
-            time: { unit: 'hour' }
-        },
-        y: { 
-            title: { display: true, text: 'Flood Level (m)' }, 
-            beginAtZero: false 
+        const response = await fetch(apiUrl);
+        
+        // Check if the response is OK (status code 200-299)
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
         }
-      }
+
+        // Parse the JSON data from the API response
+        const data = await response.json();
+        
+        // Check if data is available
+        if (data && data.items && data.items.length > 0) {
+            displayData(data.items);  // Call the function to display data (like a graph and table)
+        } else {
+            throw new Error("No data found for the selected station in the last 24 hours.");
+        }
+    } catch (error) {
+        console.error("Error fetching station data:", error);
+        alert("There was an error fetching the data. Trying to fetch the latest data instead.");
+        
+        // Fallback: fetch the current data in case of an error (e.g., CORS issue or no data for 24 hours)
+        fetchCurrentData(stationId);
     }
-  });
 }
 
-// Function to update the table
-function updateTable(readings) {
-  const tableBody = document.querySelector("#station-table tbody");
-  tableBody.innerHTML = ""; // Clear old data
+// Function to fetch just the current data
+async function fetchCurrentData(stationId) {
+    try {
+        const apiUrl = `https://environment.data.gov.uk/flood-monitoring/id/stations/${stationId}/readings`;
+        
+        console.log("Fetching current data from API:", apiUrl);  // Debugging the URL
 
-  readings.forEach(reading => {
-    const row = document.createElement("tr");
+        const response = await fetch(apiUrl);
+        
+        // Check if the response is OK (status code 200-299)
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
 
-    const timestampCell = document.createElement("td");
-    timestampCell.textContent = new Date(reading.dateTime).toLocaleString();
-
-    const levelCell = document.createElement("td");
-    levelCell.textContent = reading.value;
-
-    row.appendChild(timestampCell);
-    row.appendChild(levelCell);
-    tableBody.appendChild(row);
-  });
+        // Parse the JSON data from the API response
+        const data = await response.json();
+        
+        // Check if data is available
+        if (data && data.items && data.items.length > 0) {
+            displayData(data.items);  // Call the function to display data (like a graph and table)
+        } else {
+            throw new Error("No data found for the selected station.");
+        }
+    } catch (error) {
+        console.error("Error fetching current data:", error);
+        alert("There was an error fetching the current data.");
+    }
 }
+
+// Function to display data on the page (e.g., table and graph)
+function displayData(items) {
+    // Example code to display data (this could be customized further to show graphs and tables)
+    const dataTable = document.getElementById("data-table");
+    dataTable.innerHTML = ''; // Clear the previous data
+
+    items.forEach(item => {
+        const row = dataTable.insertRow();
+        const timeCell = row.insertCell(0);
+        const valueCell = row.insertCell(1);
+        timeCell.textContent = new Date(item.dateTime).toLocaleString(); // Format the date-time
+        valueCell.textContent = item.value; // Assume the reading is in the "value" property
+    });
+
+    // Optionally, create a graph (e.g., using Chart.js) based on the data
+    const chartData = {
+        labels: items.map(item => new Date(item.dateTime).toLocaleString()), // Date-time labels
+        datasets: [{
+            label: 'Flood Reading',
+            data: items.map(item => item.value), // Data points
+            fill: false,
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1
+        }]
+    };
+
+    const ctx = document.getElementById('myChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: chartData,
+    });
+}
+
+// Example function call (assuming you have a stationId)
+fetchStationData('531118');  // Replace with your station ID
