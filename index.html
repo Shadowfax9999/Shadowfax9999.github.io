@@ -4,7 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flood Monitoring</title>
+    
+    <!-- Include Styles -->
     <link rel="stylesheet" href="styles.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+    <!-- Include Libraries -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -13,7 +20,7 @@
         
         <!-- Dropdown to select a station -->
         <label for="station-select">Select a station:</label>
-        <select id="station-select">
+        <select id="station-select" style="width: 300px;">
             <option value="">Loading stations...</option>
         </select>
 
